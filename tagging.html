@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KAMA Video Tagging</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800;900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--kama:#00E64D;--kama2:#00E5FF;--kama-soft:rgba(0,230,77,.15);--red:#E8192C;--bg:#08090A;--surface:#0F1210;--surface2:#171D18;--surface3:#1F2720;--border:rgba(0,230,77,.14);--text:#F2F5F2;--muted:rgba(200,220,200,.55);}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;font-size:14px}
+.kf{font-family:'Barlow Condensed',sans-serif;font-weight:800;letter-spacing:.05em;text-transform:uppercase}
+button{font-family:inherit;cursor:pointer;border:none;border-radius:8px;font-size:13px}
+input,select,textarea{font-family:inherit;font-size:13px;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:6px 8px;min-width:0}
+input:focus,select:focus,textarea:focus{outline:1px solid var(--kama)}
+.btn{background:var(--surface3);color:var(--text);padding:7px 12px;border:1px solid var(--border)}
+.btn:hover{border-color:var(--kama)}
+.btn.primary{background:var(--kama);color:#04140a;font-weight:700;border-color:var(--kama)}
+.btn.danger{color:#ff6b78}
+.btn.sm{padding:4px 8px;font-size:12px}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+
+header{display:flex;align-items:center;gap:16px;padding:12px 20px;border-bottom:1px solid var(--border);background:var(--surface);flex-wrap:wrap}
+header h1{font-size:26px}
+header h1 span{color:var(--kama)}
+.matchsel{display:flex;gap:8px;align-items:center;flex:1;flex-wrap:wrap}
+.matchsel select{max-width:320px}
+
+main{display:grid;grid-template-columns:minmax(0,1fr) 420px;gap:16px;padding:16px 20px}
+@media(max-width:1100px){main{grid-template-columns:1fr}}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px}
+.card h2{font-size:18px;margin-bottom:10px;color:var(--kama)}
+
+#playerWrap{position:relative;background:#000;border-radius:10px;overflow:hidden;aspect-ratio:16/9}
+video{width:100%;height:100%;display:block;background:#000}
+#drop{position:absolute;inset:0;display:flex;flex-direction:column;gap:10px;align-items:center;justify-content:center;text-align:center;color:var(--muted);border:2px dashed var(--border);border-radius:10px;padding:20px}
+#drop.over{border-color:var(--kama);background:var(--kama-soft)}
+#drop b{color:var(--text);font-size:16px}
+#clipBadge{position:absolute;top:10px;left:10px;background:rgba(0,0,0,.75);padding:6px 10px;border-radius:6px;font-size:12px;display:none;border-left:4px solid var(--kama)}
+#recBadge{position:absolute;top:10px;right:10px;background:var(--red);padding:6px 10px;border-radius:6px;font-size:12px;font-weight:700;display:none}
+
+.controls{display:flex;gap:6px;align-items:center;margin-top:10px;flex-wrap:wrap}
+.controls .time{font-variant-numeric:tabular-nums;color:var(--muted);margin-left:auto}
+
+#timeline{position:relative;height:44px;background:var(--surface2);border-radius:8px;margin-top:10px;cursor:pointer;overflow:hidden}
+#tlProgress{position:absolute;top:0;bottom:0;left:0;background:rgba(0,230,77,.08);pointer-events:none}
+#tlHead{position:absolute;top:0;bottom:0;width:2px;background:var(--kama);pointer-events:none}
+.tlClip{position:absolute;height:10px;border-radius:3px;opacity:.85}
+.tlMark{position:absolute;width:2px;height:16px;bottom:4px}
+
+#tagGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px;margin-top:12px}
+.tagBtn{padding:14px 8px;font-weight:700;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.6);position:relative;transition:transform .08s;border:2px solid transparent;font-size:14px;line-height:1.2}
+.tagBtn:active,.tagBtn.flash{transform:scale(.94);border-color:#fff}
+.tagBtn kbd{position:absolute;top:4px;right:6px;font-size:10px;background:rgba(0,0,0,.4);padding:1px 5px;border-radius:4px;font-family:inherit}
+.tagBtn small{display:block;font-weight:500;font-size:10px;opacity:.85;margin-top:3px}
+
+.tabs{display:flex;gap:4px;margin-bottom:12px}
+.tabs button{flex:1;background:var(--surface2);color:var(--muted);padding:8px;font-weight:600}
+.tabs button.on{background:var(--kama-soft);color:var(--kama)}
+.panel{display:none}.panel.on{display:block}
+
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}
+.chip{padding:4px 10px;border-radius:20px;font-size:12px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);display:flex;align-items:center;gap:6px}
+.chip i{width:8px;height:8px;border-radius:50%;display:inline-block}
+.chip.on{color:var(--text);border-color:currentColor;background:var(--surface3)}
+.chip .n{opacity:.6}
+
+.row{display:flex;gap:6px;align-items:center;margin-bottom:8px;flex-wrap:wrap}
+.row input[type=search]{flex:1}
+#evList{max-height:56vh;overflow:auto;display:flex;flex-direction:column;gap:6px;padding-right:4px}
+.ev{display:grid;grid-template-columns:6px 1fr auto;gap:10px;background:var(--surface2);border-radius:8px;padding:8px 10px 8px 0;align-items:center;cursor:pointer;border:1px solid transparent}
+.ev:hover{border-color:var(--border)}
+.ev.playing{border-color:var(--kama)}
+.ev .bar{align-self:stretch;border-radius:8px 0 0 8px}
+.ev .t{font-weight:600}
+.ev .meta{font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums}
+.ev .note{font-size:12px;color:var(--text);opacity:.8;margin-top:2px}
+.ev .acts{display:flex;gap:4px}
+.ev .acts button{background:transparent;color:var(--muted);padding:4px 6px;font-size:14px}
+.ev .acts button:hover{color:var(--kama)}
+.empty{color:var(--muted);text-align:center;padding:24px 8px;font-size:13px}
+
+.cfg{display:grid;grid-template-columns:36px 1fr 48px 52px 52px 28px;gap:6px;align-items:center;margin-bottom:6px}
+.cfg input[type=color]{padding:0;height:30px;width:36px;border:none;background:none}
+.cfg .hd{font-size:10px;color:var(--muted);text-transform:uppercase}
+.cfg button{background:transparent;color:var(--muted);font-size:16px}
+.cfg button:hover{color:#ff6b78}
+.hint{font-size:12px;color:var(--muted);line-height:1.5;margin-top:10px}
+.hint code{background:var(--surface3);padding:1px 5px;border-radius:4px}
+
+dialog{background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:12px;padding:18px;width:min(420px,92vw);margin:auto}
+dialog::backdrop{background:rgba(0,0,0,.6)}
+dialog h3{margin-bottom:12px;color:var(--kama);font-size:20px}
+dialog label{display:block;font-size:12px;color:var(--muted);margin:8px 0 4px}
+dialog input,dialog textarea{width:100%}
+dialog .actions{display:flex;justify-content:flex-end;gap:8px;margin-top:14px}
+#toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--surface3);border:1px solid var(--kama);padding:10px 16px;border-radius:8px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:99}
+#toast.on{opacity:1}
+</style>
+</head>
+<body>
+<header>
+  <h1 class="kf">KAMA <span>Video Tagging</span></h1>
+  <div class="matchsel">
+    <select id="matchSel" title="Partita attiva"></select>
+    <label class="btn primary">+ Carica video<input type="file" id="fileIn" accept="video/*" multiple hidden></label>
+    <button class="btn" id="renameMatch">Rinomina</button>
+    <button class="btn danger" id="delMatch">Elimina partita</button>
+  </div>
+  <button class="btn" id="exportJson">Esporta progetto</button>
+  <label class="btn">Importa progetto<input type="file" id="importJson" accept=".json" hidden></label>
+</header>
+
+<main>
+  <section>
+    <div class="card">
+      <div id="playerWrap">
+        <video id="video" playsinline></video>
+        <div id="drop"><b>Trascina qui il video della partita</b><span>oppure usa “+ Carica video”. Il file resta sul tuo computer: nulla viene caricato online.</span><span id="relinkHint"></span></div>
+        <div id="clipBadge"></div>
+        <div id="recBadge">● REC</div>
+      </div>
+      <div class="controls">
+        <button class="btn sm" data-seek="-10">⏪ 10s</button>
+        <button class="btn sm" data-seek="-3">−3s</button>
+        <button class="btn sm primary" id="playBtn">▶ Play</button>
+        <button class="btn sm" data-seek="3">+3s</button>
+        <button class="btn sm" data-seek="10">10s ⏩</button>
+        <select id="rate" title="Velocità">
+          <option value="0.25">0.25×</option><option value="0.5">0.5×</option><option value="1" selected>1×</option><option value="1.5">1.5×</option><option value="2">2×</option><option value="4">4×</option>
+        </select>
+        <span class="time" id="timeLbl">00:00 / 00:00</span>
+      </div>
+      <div id="timeline"><div id="tlProgress"></div><div id="tlHead"></div></div>
+      <div id="tagGrid"></div>
+    </div>
+  </section>
+
+  <aside class="card">
+    <div class="tabs">
+      <button class="on" data-tab="events">Eventi</button>
+      <button data-tab="buttons">Pulsanti</button>
+    </div>
+
+    <div class="panel on" id="p-events">
+      <div class="row">
+        <input type="search" id="search" placeholder="Cerca nelle note…">
+        <select id="scope" title="Ambito">
+          <option value="match">Questa partita</option>
+          <option value="all">Tutte le partite</option>
+        </select>
+      </div>
+      <div class="chips" id="filterChips"></div>
+      <div class="row">
+        <button class="btn sm primary" id="playAll">▶ Riproduci filtrati</button>
+        <button class="btn sm" id="stopPl">■ Stop</button>
+        <button class="btn sm" id="recAll" title="Registra in un unico video i clip filtrati">⬇ Scarica video clip</button>
+      </div>
+      <div class="row">
+        <button class="btn sm" id="csvBtn">Esporta CSV</button>
+        <button class="btn sm" id="ffBtn" title="Script per tagliare il video originale senza perdita di qualità">Script ffmpeg</button>
+        <span class="meta" id="evCount" style="margin-left:auto;color:var(--muted);font-size:12px"></span>
+      </div>
+      <div id="evList"></div>
+    </div>
+
+    <div class="panel" id="p-buttons">
+      <div class="cfg"><span class="hd">Col.</span><span class="hd">Nome evento</span><span class="hd">Tasto</span><span class="hd">Prima s</span><span class="hd">Dopo s</span><span></span></div>
+      <div id="cfgList"></div>
+      <div class="row" style="margin-top:8px">
+        <button class="btn sm primary" id="addBtn">+ Aggiungi pulsante</button>
+        <button class="btn sm" id="resetBtns">Ripristina predefiniti</button>
+      </div>
+      <p class="hint">
+        Ogni pulsante crea un clip che parte <b>“Prima s”</b> secondi prima del momento del click e finisce <b>“Dopo s”</b> secondi dopo.
+        Puoi poi modificare inizio/fine di ogni evento con ✎.<br><br>
+        <b>Scorciatoie:</b> il tasto assegnato a ciascun pulsante segna l'evento ·
+        <code>Spazio</code> play/pausa · <code>←</code>/<code>→</code> ±3s · <code>Shift+←/→</code> ±10s · <code>,</code>/<code>.</code> fotogramma.
+      </p>
+    </div>
+  </aside>
+</main>
+
+<dialog id="evDlg">
+  <h3 class="kf">Modifica evento</h3>
+  <label>Evento</label><select id="dEvType" style="width:100%"></select>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+    <div><label>Inizio clip (mm:ss.s)</label><input id="dStart"></div>
+    <div><label>Fine clip (mm:ss.s)</label><input id="dEnd"></div>
+  </div>
+  <div style="display:flex;gap:6px;margin-top:6px">
+    <button class="btn sm" id="dSetStart">Inizio = ora</button>
+    <button class="btn sm" id="dSetEnd">Fine = ora</button>
+  </div>
+  <label>Note (giocatore, dettagli…)</label><textarea id="dNote" rows="3"></textarea>
+  <div class="actions"><button class="btn" id="dCancel">Annulla</button><button class="btn primary" id="dSave">Salva</button></div>
+</dialog>
+
+<div id="toast"></div>
+
+<script>
+(() => {
+const $ = s => document.querySelector(s);
+const video = $('#video');
+const STORE = 'kama_tagging_v1';
+const uid = () => Math.random().toString(36).slice(2, 10);
+
+const DEFAULT_BUTTONS = [
+  ['Gol', '#00E64D', 'g', 10, 5], ['Tiro', '#00E5FF', 't', 8, 4], ['Occasione', '#7C4DFF', 'o', 10, 4],
+  ['Calcio d\'angolo', '#F5A623', 'c', 3, 12], ['Punizione', '#FF9100', 'p', 3, 10], ['Fallo', '#E8192C', 'f', 6, 4],
+  ['Recupero palla', '#26A69A', 'r', 4, 6], ['Palla persa', '#EC407A', 'l', 6, 4], ['Pressing', '#8D6E63', 'x', 4, 8],
+  ['Transizione', '#42A5F5', 'z', 3, 10], ['Fuorigioco', '#BDBDBD', 'q', 6, 3], ['Parata', '#FFEB3B', 's', 6, 3],
+].map(([name, color, key, pre, post]) => ({ id: uid(), name, color, key, pre, post }));
+
+// ---------- state ----------
+let state = load();
+function load() {
+  try {
+    const s = JSON.parse(localStorage.getItem(STORE));
+    if (s && Array.isArray(s.buttons)) return { matches: {}, activeMatch: null, ...s };
+  } catch (e) {}
+  return { buttons: DEFAULT_BUTTONS, matches: {}, activeMatch: null };
+}
+function save() { try { localStorage.setItem(STORE, JSON.stringify(state)); } catch (e) { toast('Impossibile salvare nel browser'); } }
+
+const videoUrls = {};       // matchId -> objectURL (solo in sessione)
+let filters = new Set();    // id pulsanti attivi nel filtro (vuoto = tutti)
+let playlist = null;        // {items, i}
+let currentClip = null;     // evento in riproduzione come clip
+let recorder = null;
+
+const match = () => state.matches[state.activeMatch];
+const btnById = id => state.buttons.find(b => b.id === id);
+
+// ---------- utils ----------
+function fmt(t, dec = false) {
+  if (!isFinite(t)) t = 0;
+  const h = Math.floor(t / 3600), m = Math.floor(t % 3600 / 60), s = t % 60;
+  const ss = dec ? s.toFixed(1).padStart(4, '0') : String(Math.floor(s)).padStart(2, '0');
+  return (h ? h + ':' + String(m).padStart(2, '0') : String(m).padStart(2, '0')) + ':' + ss;
+}
+function parseT(str) {
+  const p = String(str).trim().split(':').map(Number);
+  if (p.some(isNaN)) return NaN;
+  return p.reduce((a, v) => a * 60 + v, 0);
+}
+function toast(msg) { const t = $('#toast'); t.textContent = msg; t.classList.add('on'); clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove('on'), 2200); }
+function download(name, content, type) {
+  const blob = content instanceof Blob ? content : new Blob([content], { type });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+}
+function isLight(hex) { const n = parseInt(String(hex).slice(1), 16); return ((n >> 16) * 299 + (n >> 8 & 255) * 587 + (n & 255) * 114) / 1000 > 160; }
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+// ---------- video loading ----------
+function addVideoFiles(files) {
+  let last;
+  for (const f of files) {
+    if (!f.type.startsWith('video/') && !/\.(mp4|mov|mkv|webm|m4v|avi)$/i.test(f.name)) continue;
+    const id = f.name + '_' + f.size;
+    if (!state.matches[id]) state.matches[id] = { name: f.name.replace(/\.[^.]+$/, ''), fileName: f.name, size: f.size, events: [], created: Date.now() };
+    if (videoUrls[id]) URL.revokeObjectURL(videoUrls[id]);
+    videoUrls[id] = URL.createObjectURL(f);
+    last = id;
+  }
+  if (!last) return toast('Nessun file video valido');
+  save(); setMatch(last);
+}
+function setMatch(id, keepTime) {
+  state.activeMatch = id; save();
+  const url = videoUrls[id];
+  if (url && video.src !== url) { video.src = url; if (!keepTime) video.currentTime = 0; }
+  if (!url) { video.removeAttribute('src'); video.load(); }
+  $('#drop').style.display = url ? 'none' : 'flex';
+  const m = match();
+  $('#relinkHint').innerHTML = m && !url ? `Per la partita <b>${esc(m.name)}</b> ricarica il file <b>${esc(m.fileName)}</b>: i tag salvati verranno ricollegati.` : '';
+  renderAll();
+}
+$('#fileIn').onchange = e => { addVideoFiles(e.target.files); e.target.value = ''; };
+const wrap = $('#playerWrap'), drop = $('#drop');
+wrap.addEventListener('dragover', e => { e.preventDefault(); drop.classList.add('over'); drop.style.display = 'flex'; });
+wrap.addEventListener('dragleave', () => { drop.classList.remove('over'); if (videoUrls[state.activeMatch]) drop.style.display = 'none'; });
+wrap.addEventListener('drop', e => { e.preventDefault(); drop.classList.remove('over'); addVideoFiles(e.dataTransfer.files); });
+$('#matchSel').onchange = e => { stopPlaylist(); setMatch(e.target.value); };
+$('#renameMatch').onclick = () => { const m = match(); if (!m) return; const n = prompt('Nome partita', m.name); if (n) { m.name = n.trim(); save(); renderAll(); } };
+$('#delMatch').onclick = () => {
+  const m = match(); if (!m) return;
+  if (!confirm(`Eliminare la partita "${m.name}" e i suoi ${m.events.length} eventi?`)) return;
+  delete state.matches[state.activeMatch];
+  state.activeMatch = Object.keys(state.matches)[0] || null; save(); setMatch(state.activeMatch);
+};
+
+// ---------- player controls ----------
+$('#playBtn').onclick = () => video.paused ? video.play() : video.pause();
+document.querySelectorAll('[data-seek]').forEach(b => b.onclick = () => seekBy(+b.dataset.seek));
+$('#rate').onchange = e => video.playbackRate = +e.target.value;
+function seekBy(d) { if (video.duration) video.currentTime = Math.max(0, Math.min(video.duration, video.currentTime + d)); }
+video.addEventListener('play', () => $('#playBtn').textContent = '❚❚ Pausa');
+video.addEventListener('pause', () => $('#playBtn').textContent = '▶ Play');
+video.addEventListener('loadedmetadata', () => { const m = match(); if (m) { m.duration = video.duration; save(); } video.playbackRate = +$('#rate').value; renderTimeline(); });
+video.addEventListener('timeupdate', onTime);
+function onTime() {
+  const d = video.duration || 0, t = video.currentTime;
+  $('#timeLbl').textContent = fmt(t) + ' / ' + fmt(d);
+  const pct = d ? t / d * 100 : 0;
+  $('#tlHead').style.left = pct + '%'; $('#tlProgress').style.width = pct + '%';
+  if (currentClip && t >= currentClip.end) clipEnded();
+}
+$('#timeline').onclick = e => {
+  if (!video.duration) return;
+  const r = e.currentTarget.getBoundingClientRect();
+  currentClip = null; stopPlaylist();
+  video.currentTime = (e.clientX - r.left) / r.width * video.duration;
+};
+
+// ---------- tagging ----------
+function tag(btn) {
+  const m = match();
+  if (!m || !videoUrls[state.activeMatch]) return toast('Carica prima un video');
+  const t = video.currentTime;
+  const ev = { id: uid(), btnId: btn.id, label: btn.name, color: btn.color, t, start: Math.max(0, t - btn.pre), end: Math.min(video.duration || t + btn.post, t + btn.post), note: '', created: Date.now() };
+  m.events.push(ev); m.events.sort((a, b) => a.t - b.t); save();
+  renderAll();
+  const el = document.querySelector(`.tagBtn[data-id="${btn.id}"]`);
+  if (el) { el.classList.add('flash'); setTimeout(() => el.classList.remove('flash'), 150); }
+  toast(`✓ ${btn.name} @ ${fmt(t)}`);
+}
+function renderTagGrid() {
+  $('#tagGrid').innerHTML = state.buttons.map(b =>
+    `<button class="tagBtn" data-id="${b.id}" style="background:${b.color};${isLight(b.color) ? 'color:#111;text-shadow:none' : ''}">${b.key ? `<kbd>${esc(b.key.toUpperCase())}</kbd>` : ''}${esc(b.name)}<small>−${b.pre}s / +${b.post}s</small></button>`).join('');
+  document.querySelectorAll('.tagBtn').forEach(el => el.onclick = () => tag(btnById(el.dataset.id)));
+}
+
+// ---------- keyboard ----------
+document.addEventListener('keydown', e => {
+  if (e.target.matches('input,textarea,select') || document.querySelector('dialog[open]') || e.ctrlKey || e.metaKey || e.altKey) return;
+  const k = e.key;
+  if (k === ' ') { e.preventDefault(); $('#playBtn').click(); return; }
+  if (k === 'ArrowLeft') { e.preventDefault(); seekBy(e.shiftKey ? -10 : -3); return; }
+  if (k === 'ArrowRight') { e.preventDefault(); seekBy(e.shiftKey ? 10 : 3); return; }
+  if (k === ',') { video.pause(); seekBy(-1 / 25); return; }
+  if (k === '.') { video.pause(); seekBy(1 / 25); return; }
+  const b = state.buttons.find(b => b.key && b.key.toLowerCase() === k.toLowerCase());
+  if (b) { e.preventDefault(); tag(b); }
+});
+
+// ---------- filters & list ----------
+function scopedEvents() {
+  const scope = $('#scope').value;
+  const ids = scope === 'all' ? Object.keys(state.matches) : (state.activeMatch ? [state.activeMatch] : []);
+  const out = [];
+  for (const id of ids) for (const ev of state.matches[id].events) out.push({ ...ev, matchId: id });
+  return out;
+}
+function filteredEvents() {
+  const q = $('#search').value.trim().toLowerCase();
+  return scopedEvents().filter(ev =>
+    (!filters.size || filters.has(ev.btnId)) &&
+    (!q || (ev.note || '').toLowerCase().includes(q) || ev.label.toLowerCase().includes(q))
+  ).sort((a, b) => a.matchId === b.matchId ? a.t - b.t : (state.matches[a.matchId].created || 0) - (state.matches[b.matchId].created || 0));
+}
+function renderChips() {
+  const all = scopedEvents(), counts = {};
+  all.forEach(e => counts[e.btnId] = (counts[e.btnId] || 0) + 1);
+  // include eventi di pulsanti eliminati
+  const ids = [...new Set([...state.buttons.map(b => b.id), ...all.map(e => e.btnId)])];
+  const info = id => btnById(id) || (all.find(e => e.btnId === id) && { name: all.find(e => e.btnId === id).label, color: all.find(e => e.btnId === id).color });
+  $('#filterChips').innerHTML = `<button class="chip ${filters.size ? '' : 'on'}" data-f="">Tutti <span class="n">${all.length}</span></button>` +
+    ids.filter(id => counts[id] || btnById(id)).map(id => { const b = info(id); return `<button class="chip ${filters.has(id) ? 'on' : ''}" data-f="${id}" style="${filters.has(id) ? 'color:' + b.color : ''}"><i style="background:${b.color}"></i>${esc(b.name)} <span class="n">${counts[id] || 0}</span></button>`; }).join('');
+  document.querySelectorAll('#filterChips .chip').forEach(c => c.onclick = () => {
+    const f = c.dataset.f;
+    if (!f) filters.clear(); else filters.has(f) ? filters.delete(f) : filters.add(f);
+    renderChips(); renderEvents();
+  });
+}
+function renderEvents() {
+  const list = filteredEvents(), multi = $('#scope').value === 'all';
+  $('#evCount').textContent = `${list.length} clip · ${fmt(list.reduce((a, e) => a + (e.end - e.start), 0))} totali`;
+  if (!list.length) { $('#evList').innerHTML = `<div class="empty">${state.activeMatch ? 'Nessun evento. Premi un pulsante sotto il video per taggare.' : 'Carica il video di una partita per iniziare.'}</div>`; return; }
+  $('#evList').innerHTML = list.map(ev => `
+    <div class="ev ${currentClip && currentClip.id === ev.id ? 'playing' : ''}" data-id="${ev.id}" data-m="${esc(ev.matchId)}">
+      <div class="bar" style="background:${ev.color}"></div>
+      <div><div class="t">${esc(ev.label)} <span class="meta">@ ${fmt(ev.t)}</span></div>
+        <div class="meta">${fmt(ev.start, true)} → ${fmt(ev.end, true)} (${(ev.end - ev.start).toFixed(1)}s)${multi ? ' · ' + esc(state.matches[ev.matchId].name) : ''}${videoUrls[ev.matchId] ? '' : ' · ⚠ video non caricato'}</div>
+        ${ev.note ? `<div class="note">${esc(ev.note)}</div>` : ''}</div>
+      <div class="acts"><button data-a="play" title="Riproduci clip">▶</button><button data-a="dl" title="Scarica clip">⬇</button><button data-a="edit" title="Modifica">✎</button><button data-a="del" title="Elimina">✕</button></div>
+    </div>`).join('');
+  document.querySelectorAll('#evList .ev').forEach(el => {
+    const get = () => state.matches[el.dataset.m].events.find(e => e.id === el.dataset.id);
+    el.onclick = e => {
+      const a = e.target.dataset.a, ev = get();
+      if (a === 'del') { const m = state.matches[el.dataset.m]; m.events = m.events.filter(x => x.id !== ev.id); save(); renderAll(); return; }
+      if (a === 'edit') return openEdit(ev, el.dataset.m);
+      if (a === 'dl') return recordClips([{ ...ev, matchId: el.dataset.m }]);
+      stopPlaylist(); playClip({ ...ev, matchId: el.dataset.m });
+    };
+  });
+}
+$('#search').oninput = renderEvents;
+$('#scope').onchange = () => { renderChips(); renderEvents(); };
+
+// ---------- timeline ----------
+function renderTimeline() {
+  const tl = $('#timeline'); tl.querySelectorAll('.tlClip,.tlMark').forEach(n => n.remove());
+  const m = match(), d = video.duration || (m && m.duration);
+  if (!m || !d) return;
+  const lanes = [];
+  m.events.forEach(ev => {
+    let lane = lanes.findIndex(end => end <= ev.start); if (lane < 0) { lane = lanes.length; lanes.push(0); } lanes[lane] = ev.end;
+    const c = document.createElement('div'); c.className = 'tlClip';
+    c.style.cssText = `left:${ev.start / d * 100}%;width:${Math.max(.2, (ev.end - ev.start) / d * 100)}%;top:${3 + (lane % 2) * 11}px;background:${ev.color}`;
+    c.title = `${ev.label} @ ${fmt(ev.t)}`;
+    c.onclick = e => { e.stopPropagation(); stopPlaylist(); playClip({ ...ev, matchId: state.activeMatch }); };
+    tl.appendChild(c);
+    const mk = document.createElement('div'); mk.className = 'tlMark'; mk.style.cssText = `left:${ev.t / d * 100}%;background:${ev.color}`; tl.appendChild(mk);
+  });
+}
+
+// ---------- clip playback ----------
+function playClip(ev) {
+  if (!videoUrls[ev.matchId]) { toast(`Carica il video "${state.matches[ev.matchId].fileName}"`); return false; }
+  if (state.activeMatch !== ev.matchId) setMatch(ev.matchId, true);
+  currentClip = ev;
+  const go = () => { video.currentTime = ev.start; video.play(); };
+  if (video.readyState >= 1) go(); else video.addEventListener('loadedmetadata', go, { once: true });
+  const b = $('#clipBadge'); b.style.display = 'block'; b.style.borderLeftColor = ev.color;
+  b.textContent = `${ev.label} · ${fmt(ev.t)}${playlist ? ` · clip ${playlist.i + 1}/${playlist.items.length}` : ''}`;
+  renderEvents(); return true;
+}
+function clipEnded() {
+  if (playlist && playlist.i < playlist.items.length - 1) { playlist.i++; if (playClip(playlist.items[playlist.i])) return; }
+  video.pause(); currentClip = null; $('#clipBadge').style.display = 'none';
+  const wasPl = playlist; playlist = null; renderEvents();
+  if (wasPl && wasPl.onDone) wasPl.onDone();
+}
+function stopPlaylist() {
+  playlist = null; currentClip = null; $('#clipBadge').style.display = 'none';
+  if (recorder && recorder.state !== 'inactive') recorder.stop();
+}
+$('#playAll').onclick = () => {
+  const items = filteredEvents().filter(e => videoUrls[e.matchId]);
+  if (!items.length) return toast('Nessun clip riproducibile (video caricato?)');
+  playlist = { items, i: 0 }; playClip(items[0]);
+};
+$('#stopPl').onclick = () => { stopPlaylist(); video.pause(); renderEvents(); };
+
+// ---------- export video (registrazione dal player) ----------
+function recordClips(items) {
+  items = items.filter(e => videoUrls[e.matchId]);
+  if (!items.length) return toast('Nessun clip con video caricato');
+  const cap = video.captureStream || video.mozCaptureStream;
+  if (!cap || !window.MediaRecorder) return toast('Browser non supportato: usa Chrome/Edge o lo script ffmpeg');
+  if (recorder && recorder.state !== 'inactive') return toast('Registrazione già in corso');
+  const total = items.reduce((a, e) => a + e.end - e.start, 0);
+  if (!confirm(`Verranno registrati ${items.length} clip (${fmt(total)}) in tempo reale in un unico file .webm.\nNon cambiare scheda durante la registrazione.\n\nPer tagli istantanei e senza perdita usa “Script ffmpeg”.`)) return;
+  const stream = cap.call(video);
+  const mime = ['video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm'].find(t => MediaRecorder.isTypeSupported(t));
+  const chunks = [];
+  recorder = new MediaRecorder(stream, mime ? { mimeType: mime, videoBitsPerSecond: 8e6 } : undefined);
+  recorder.ondataavailable = e => e.data.size && chunks.push(e.data);
+  recorder.onstop = () => {
+    $('#recBadge').style.display = 'none'; video.playbackRate = +$('#rate').value;
+    video.removeEventListener('seeking', pauseRec); video.removeEventListener('playing', resumeRec); video.removeEventListener('seeked', resumeRec);
+    if (chunks.length) {
+      const name = items.length === 1 ? `${items[0].label}_${fmt(items[0].t).replace(/:/g, '-')}` : `clip_${[...new Set(items.map(i => i.label))].join('-')}`;
+      download(name.replace(/[^\w\-àèéìòù]+/gi, '_') + '.webm', new Blob(chunks, { type: 'video/webm' }));
+      toast('Video scaricato');
+    }
+    recorder = null;
+  };
+  const pauseRec = () => recorder && recorder.state === 'recording' && recorder.pause();
+  const resumeRec = () => recorder && recorder.state === 'paused' && !video.paused && !video.seeking && recorder.resume();
+  video.addEventListener('seeking', pauseRec); video.addEventListener('playing', resumeRec); video.addEventListener('seeked', resumeRec);
+  video.playbackRate = 1;
+  $('#recBadge').style.display = 'block';
+  recorder.start(1000); recorder.pause();
+  playlist = { items, i: 0, onDone: () => recorder && recorder.state !== 'inactive' && recorder.stop() };
+  playClip(items[0]);
+}
+$('#recAll').onclick = () => recordClips(filteredEvents());
+
+// ---------- export dati ----------
+$('#csvBtn').onclick = () => {
+  const rows = [['Partita', 'File', 'Evento', 'Momento', 'Inizio', 'Fine', 'Durata_s', 'Note']];
+  filteredEvents().forEach(e => { const m = state.matches[e.matchId]; rows.push([m.name, m.fileName, e.label, fmt(e.t, true), fmt(e.start, true), fmt(e.end, true), (e.end - e.start).toFixed(1), e.note || '']); });
+  download('eventi.csv', '﻿' + rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(';')).join('\n'), 'text/csv');
+};
+$('#ffBtn').onclick = () => {
+  const list = filteredEvents(); if (!list.length) return toast('Nessun evento');
+  const lines = ['# Script generato da KAMA Video Tagging', '# Metti questo file nella stessa cartella dei video ed eseguilo (richiede ffmpeg).', '# Windows: rinomina in .bat ed eliminare la prima riga "#!/bin/sh".', 'mkdir clip', ''];
+  list.forEach((e, i) => {
+    const m = state.matches[e.matchId], ext = (m.fileName.match(/\.[^.]+$/) || ['.mp4'])[0];
+    const out = `clip/${String(i + 1).padStart(3, '0')}_${e.label}_${fmt(e.t).replace(/:/g, '-')}`.replace(/[^\w\-\/àèéìòù]+/gi, '_') + ext;
+    lines.push(`ffmpeg -y -ss ${e.start.toFixed(2)} -i "${m.fileName}" -t ${(e.end - e.start).toFixed(2)} -c copy -avoid_negative_ts make_zero "${out}"`);
+  });
+  download('taglia_clip.sh', '#!/bin/sh\n' + lines.join('\n') + '\n', 'text/plain');
+};
+$('#exportJson').onclick = () => download(`kama_tagging_${new Date().toISOString().slice(0, 10)}.json`, JSON.stringify(state, null, 2), 'application/json');
+$('#importJson').onchange = async e => {
+  const f = e.target.files[0]; e.target.value = ''; if (!f) return;
+  try {
+    const s = JSON.parse(await f.text());
+    if (!Array.isArray(s.buttons) || typeof s.matches !== 'object') throw 0;
+    if (!confirm('Unire il progetto importato a quello attuale? (Annulla = sostituisci tutto)')) state = s;
+    else { s.buttons.forEach(b => !btnById(b.id) && state.buttons.push(b)); Object.assign(state.matches, s.matches); }
+    save(); setMatch(state.activeMatch || Object.keys(state.matches)[0] || null); renderTagGrid(); renderCfg(); toast('Progetto importato');
+  } catch (err) { toast('File non valido'); }
+};
+
+// ---------- edit dialog ----------
+let editing = null;
+function openEdit(ev, matchId) {
+  editing = { ev, matchId };
+  $('#dEvType').innerHTML = state.buttons.map(b => `<option value="${b.id}" ${b.id === ev.btnId ? 'selected' : ''}>${esc(b.name)}</option>`).join('') + (btnById(ev.btnId) ? '' : `<option value="${ev.btnId}" selected>${esc(ev.label)}</option>`);
+  $('#dStart').value = fmt(ev.start, true); $('#dEnd').value = fmt(ev.end, true); $('#dNote').value = ev.note || '';
+  $('#evDlg').showModal();
+}
+$('#dSetStart').onclick = () => $('#dStart').value = fmt(video.currentTime, true);
+$('#dSetEnd').onclick = () => $('#dEnd').value = fmt(video.currentTime, true);
+$('#dCancel').onclick = () => $('#evDlg').close();
+$('#dSave').onclick = () => {
+  const s = parseT($('#dStart').value), en = parseT($('#dEnd').value);
+  if (isNaN(s) || isNaN(en) || en <= s) return toast('Tempi non validi');
+  const { ev } = editing, b = btnById($('#dEvType').value);
+  Object.assign(ev, { start: s, end: en, note: $('#dNote').value.trim() });
+  if (b) Object.assign(ev, { btnId: b.id, label: b.name, color: b.color });
+  save(); $('#evDlg').close(); renderAll();
+};
+
+// ---------- buttons config ----------
+function renderCfg() {
+  $('#cfgList').innerHTML = state.buttons.map(b => `
+    <div class="cfg" data-id="${b.id}">
+      <input type="color" data-k="color" value="${b.color}">
+      <input data-k="name" value="${esc(b.name)}">
+      <input data-k="key" maxlength="1" value="${esc(b.key || '')}" style="text-align:center">
+      <input data-k="pre" type="number" min="0" step="1" value="${b.pre}">
+      <input data-k="post" type="number" min="0" step="1" value="${b.post}">
+      <button title="Elimina">✕</button>
+    </div>`).join('');
+  document.querySelectorAll('#cfgList .cfg').forEach(row => {
+    const b = btnById(row.dataset.id);
+    row.querySelectorAll('input').forEach(inp => inp.oninput = () => {
+      const k = inp.dataset.k; let v = inp.value;
+      if (k === 'pre' || k === 'post') v = Math.max(0, +v || 0);
+      if (k === 'key') {
+        v = v.toLowerCase();
+        if (v && (v === ' ' || ',.'.includes(v))) { toast('Tasto riservato'); inp.value = ''; v = ''; }
+        const dup = v && state.buttons.find(x => x !== b && x.key === v);
+        if (dup) { toast(`Tasto già usato da "${dup.name}"`); inp.value = ''; v = ''; }
+      }
+      b[k] = v;
+      if (k === 'name' || k === 'color') Object.values(state.matches).forEach(m => m.events.forEach(e => { if (e.btnId === b.id) { e.label = b.name; e.color = b.color; } }));
+      save(); renderTagGrid(); renderChips(); renderEvents(); renderTimeline();
+    });
+    row.querySelector('button').onclick = () => {
+      if (!confirm(`Eliminare il pulsante "${b.name}"? Gli eventi già taggati restano.`)) return;
+      state.buttons = state.buttons.filter(x => x !== b); filters.delete(b.id); save(); renderTagGrid(); renderCfg(); renderChips();
+    };
+  });
+}
+$('#addBtn').onclick = () => {
+  const hue = Math.floor(Math.random() * 360);
+  const c = `hsl(${hue},70%,50%)`, cv = document.createElement('canvas').getContext('2d'); cv.fillStyle = c;
+  state.buttons.push({ id: uid(), name: 'Nuovo evento', color: cv.fillStyle, key: '', pre: 5, post: 5 });
+  save(); renderTagGrid(); renderCfg(); renderChips();
+  const inputs = document.querySelectorAll('#cfgList input[data-k=name]'); inputs[inputs.length - 1].select();
+};
+$('#resetBtns').onclick = () => { if (confirm('Sostituire i pulsanti con quelli predefiniti?')) { state.buttons = DEFAULT_BUTTONS.map(b => ({ ...b })); filters.clear(); save(); renderTagGrid(); renderCfg(); renderChips(); } };
+
+document.querySelectorAll('.tabs button').forEach(t => t.onclick = () => {
+  document.querySelectorAll('.tabs button').forEach(x => x.classList.toggle('on', x === t));
+  document.querySelectorAll('.panel').forEach(p => p.classList.toggle('on', p.id === 'p-' + t.dataset.tab));
+});
+
+// ---------- render ----------
+function renderMatchSel() {
+  const ids = Object.keys(state.matches);
+  $('#matchSel').innerHTML = ids.length ? ids.map(id => `<option value="${esc(id)}" ${id === state.activeMatch ? 'selected' : ''}>${esc(state.matches[id].name)} (${state.matches[id].events.length})${videoUrls[id] ? '' : ' – video da ricaricare'}</option>`).join('') : '<option>Nessuna partita</option>';
+}
+function renderAll() { renderMatchSel(); renderChips(); renderEvents(); renderTimeline(); }
+
+window.addEventListener('beforeunload', e => { if (recorder) { e.preventDefault(); e.returnValue = ''; } });
+renderTagGrid(); renderCfg(); setMatch(state.activeMatch && state.matches[state.activeMatch] ? state.activeMatch : (Object.keys(state.matches)[0] || null));
+})();
+</script>
+</body>
+</html>
